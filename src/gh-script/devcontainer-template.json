@@ -11,8 +11,6 @@
         "R"
     ],
     "optionalPaths": [
-        "Dockerfile",
-        "docker-compose.yml",
         ".github/*"
     ]
 }
