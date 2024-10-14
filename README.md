@@ -19,8 +19,8 @@ dev container templates.
 
 ## Templates
 
-* [`gh-script`](gh-script) An R script to run with a scheduler on GitHub
-  Actions.
+* [`gh-script`](src/gh-script) An R script to run with a scheduler on
+  GitHub Actions.
 
 ## VS Code installation
 
