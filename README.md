@@ -70,7 +70,7 @@ dev container templates.
 ## Usage
 
 Use the template as usual in tools that natively support dev containers,
-e.g. VS Code, [GitHuh Codespaces](https://github.com/features/codespaces),
+e.g. VS Code, [GitHub Codespaces](https://github.com/features/codespaces),
 [VSCodium](https://vscodium.com/) + [Devpod](https://devpod.sh/), etc.
 
 ### Positron
