@@ -3,7 +3,7 @@
 ## Common features
 
 * Ubuntu 22.04 base image.
-* R 4.4.4 via [rig](https://github.com/r-lib/rig#readme).
+* R 4.4.x via [rig](https://github.com/r-lib/rig#readme).
 * Package dependencies are specified in a `DESCRIPTION` file, as
   `Dependes:` or `Imports:`.
 * Package dependencies for tests are specified in `DESCRIPTION`, under
@@ -60,7 +60,7 @@ dev container templates.
    ```
 1. Build the template:
    ```
-   devcontainer build--workspace-folder .
+   devcontainer build --workspace-folder .
    ```
 1. Start the container:
    ```
