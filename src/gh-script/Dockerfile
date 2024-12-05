@@ -1,83 +1,52 @@
-# syntax=docker/dockerfile:1.7-labs
-# ^^^ needed for COPY --exclude
-
-# This is the SHA of a multi-arch manifest, so it'll use the native
-# container on amd64 / arm64.
-ARG BASE=ghcr.io/r-lib/rig/ubuntu-22.04-release@sha256:1dc2de2cf32dd10945a4ed3714ae35e73b01e1ea47f458c3e9dc82eef016a3e2
-
-# -------------------------------------------------------------------------
-# build stage has stuff needed for everything, e.g. R, hard dependencies
-# -------------------------------------------------------------------------
-FROM --platform=linux/amd64 ${BASE} AS build
-
-COPY ./DESCRIPTION .
-RUN R -q -e 'pak::pkg_install("deps::.", lib = .Library); pak::pak_cleanup(force = TRUE)' && \
-    apt-get clean && \
-    rm -rf DESCRIPTION /tmp/*
-
-# -------------------------------------------------------------------------
-# test-deps stage have stuff needed to run the tests and also for dev
-# -------------------------------------------------------------------------
-FROM build AS test-deps
-
-ENV NOT_CRAN=true
-
-COPY ./DESCRIPTION .
-RUN R -q -e 'pak::pkg_install("deps::.", dependencies = TRUE)'; \
-    apt-get clean && \
-    rm -rf DESCRIPTION /tmp/*
-
-# -------------------------------------------------------------------------
-# This stage actually runs the tests + test coverage
-# -------------------------------------------------------------------------
-FROM test-deps AS test
-
-COPY . /app
+# =========================================================================
+# Includes R and prod dependencies
+FROM --platform=linux/amd64 ghcr.io/r-lib/rig/ubuntu-22.04-release AS deps
 WORKDIR /app
+COPY ./DESCRIPTION .
+RUN : -- DEPENDENCIES ------------------------------------------------ && \
+    R -q -e 'pak::pkg_install("deps::.", lib = .Library); pak::pak_cleanup(force = TRUE)' && \
+    apt-get clean && rm -rf /tmp/* && \
+    : ---------------------------------------------------------------------
 
-RUN if [ -d tests ]; then \
+# =========================================================================
+# deps stage + test dependencies
+FROM deps AS test-deps
+RUN : -- TEST DEPENDENCIES ------------------------------------------- && \
+    R -q -e 'pak::pkg_install("deps::.", lib = .Library, dependencies = TRUE)' && \
+    apt-get clean && rm -rf /tmp/* && \
+    : ---------------------------------------------------------------------
+
+# =========================================================================
+# Use the deps stage to run the tests
+FROM test-deps AS test
+COPY . /app
+RUN : -- TESTS ------------------------------------------------------- && \
+    if [ -d tests ]; then \
       R -q -e 'testthat::test_local()'; \
-      R -q -e 'covr::to_cobertura(print(covr::package_coverage()))'; \
-    fi
+      R -q -e 'covr::package_coverage()'; \
+    fi && \
+    : ---------------------------------------------------------------------
 
-ARG GITHUB_SHA
-ARG GITHUB_REPOSITORY
-ARG GITHUB_REF_NAME
-RUN --mount=type=secret,id=CODECOV_TOKEN \
-    if [ -d tests ] && [ -f /run/secrets/CODECOV_TOKEN ]; then \
-      apt-get update && apt-get install -y git && \
-      R -q -e 'download.file("https://cli.codecov.io/latest/linux/codecov", "/usr/local/bin/codecov")' && \
-      chmod +x /usr/local/bin/codecov && \
-      codecov upload-process --disable-search -f cobertura.xml --plugin noop \
-        --git-service github --token `cat /run/secrets/CODECOV_TOKEN` \
-        --sha ${GITHUB_SHA} --slug ${GITHUB_REPOSITORY} \
-        --branch ${GITHUB_REF_NAME}; \
-    fi
+# =========================================================================
+# Run the prod script
+FROM deps AS prod
+# introduce a dependency on the test stage
+COPY --from=test /tmp/dumm[y] /tmp/
 
-# -------------------------------------------------------------------------
-# production stage, this is deployed. Has the extra stuff only needed
-# for deployment
-# -------------------------------------------------------------------------
-FROM build AS prod
-COPY --from=test /tmp/dummy* /tmp/
+# copy everything (could exclude the tests)
+COPY . /app
 
-# copy everything, except the tests
-COPY --exclude=tests . /app
-
-# tools neeed for prod
-RUN apt-get update && \
-    apt-get install -y git rsync && \
-    apt-get clean
-
-# -------------------------------------------------------------------------
-# for development. This is the default, so devcontainers run this.
-# it has the test-deps, plus stuff only needed for development
-# -------------------------------------------------------------------------
+# =========================================================================
+# For development we also include devtools & co
 FROM test-deps AS dev
 
 RUN R -q -e 'pak::pkg_install(c("devtools", "usethis", "profvis"))'
 RUN R -q -e 'pak::pkg_install("languageserver")'
 
+RUN mkdir -p /workspaces
+
+# =========================================================================
+# SSH server for running the dev container in Positron
 RUN apt-get update && \
     apt-get install -y openssh-server && \
     apt-get clean

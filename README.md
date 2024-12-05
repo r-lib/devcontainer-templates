@@ -10,12 +10,15 @@
   `Suggests:`.
 * The `test` stage of `Dockerfile` runs the tests.
 * The `prod` stage of `Dockerfile` runs the tests cases via
- `testthat::test_lcal()`, but does not include them in the image.
+ `testthat::test_local()`.
 
 ## Example project
 
 See the https://github.com/r-hub/cran-metadata project that uses these
 dev container templates.
+
+Another example project that uses a newer version of the `gh-script`
+template is https://github.com/gaborcsardi/myweek.
 
 ## Templates
 
